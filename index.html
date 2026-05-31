@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>步步為營</title>
+    <style>
+        /* ========================================= */
+        /* --- 全局暗色系主題與動畫 (Dark Theme) --- */
+        /* ========================================= */
+        :root {
+            --bg-color: #0f172a;
+            --container-bg: rgba(30, 41, 59, 0.85);
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --primary-grad: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+            --border-radius: 12px;
+        }
+
+        body {
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+            background: linear-gradient(-45deg, #0f172a, #1e1b4b, #312e81, #0f172a);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+            touch-action: manipulation;
+        }
+        
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* 介面容器 (玻璃擬態) */
+        .screen {
+            display: none;
+            width: 100%;
+            max-width: 550px;
+            flex-direction: column;
+            align-items: center;
+        }
+        .screen.active {
+            display: flex;
+        }
+
+        .card {
+            background: var(--container-bg);
+            padding: 25px;
+            border-radius: 16px;
+            width: 100%;
+            box-sizing: border-box;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: var(--glass-border);
+            animation: fadeInUp 0.5s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1, h2, h3 { 
+            margin-top: 0; text-align: center; 
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5); 
+        }
+        
+        .gradient-text {
+            background: linear-gradient(to right, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* 按鈕美化 */
+        .btn {
+            background: var(--primary-grad);
+            color: white;
+            border: none;
+            padding: 14px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-top: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        .btn:hover { 
+            transform: translateY(-3px) scale(1.02); 
+            box-shadow: 0 8px 25px rgba(255,255,255,0.2); 
+        }
+        .btn:disabled { background: #555; cursor: not-allowed; transform: none; box-shadow: none; }
+        
+        .btn-red { background: linear-gradient(135deg, #ef4444, #991b1b); }
+        .btn-green { background: linear-gradient(135deg, #10b981, #047857); }
+
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            margin: 8px 0;
+            border: 1px solid #475569;
+            border-radius: 8px;
+            background: #1e293b;
+            color: white;
+            box-sizing: border-box;
+            font-size: 16px;
+            outline: none;
+            transition: 0.3s;
+        }
+        input:focus { border-color: #8b5cf6; }
+
+        /* 房間列表 */
+        #room-list-container {
+            width: 100%;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .room-item {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255,255,255,0.05);
+            padding: 15px;
+            margin-bottom: 12px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: 0.3s;
+        }
+        .room-item:hover { background: rgba(255, 255, 255, 0.05); transform: translateX(5px); }
+        .room-item button { width: auto; margin: 0; padding: 8px 16px; background: var(--accent-green); }
+
+        /* --- 遊戲棋盤區 (9列 x 11行) --- */
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+        
+        #board-container {
+            width: 100%;
+            overflow-x: auto;
+            display: flex;
+            justify-content: center;
+            padding: 10px 0;
+        }
+
+        #board {
+            display: grid;
+            /* 9格 X軸 (32px格 + 10px牆槽) */
+            grid-template-columns: repeat(8, 32px 10px) 32px;
+            /* 11格 Y軸 (包含頭尾兩側的 Bank 對岸區) */
+            grid-template-rows: repeat(10, 32px 10px) 32px;
+            gap: 0;
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 2px solid #334155;
+            touch-action: none; 
+            margin: 5px 0;
+        }
+        
+        .bank-label {
+            width: 100%; text-align: center; color: var(--text-muted); 
+            font-weight: bold; margin: 5px 0; text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+
+        .cell {
+            width: 32px; height: 32px;
+            background: #334155;
+            border-radius: 6px;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 20px; cursor: pointer; position: relative;
+            transition: 0.2s; user-select: none;
+        }
+        .cell:hover { background: #475569; }
+        
+        /* 區分對岸區的顏色 */
+        .bank-cell { background: rgba(99, 102, 241, 0.15); border: 1px dashed #6366f1; }
+        
+        .cell.valid-move::after {
+            content: ''; position: absolute;
+            width: 14px; height: 14px;
+            background: rgba(16, 185, 129, 0.7);
+            border-radius: 50%; box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+        }
+        
+        /* 牆壁基礎設定 */
+        .wall-h { width: 32px; height: 10px; background: rgba(255,255,255,0.03); cursor: pointer; transition: 0.2s; }
+        .wall-v { width: 10px; height: 32px; background: rgba(255,255,255,0.03); cursor: pointer; transition: 0.2s; }
+        .wall-c { width: 10px; height: 10px; background: transparent; }
+        .wall-h:hover, .wall-v:hover { background: rgba(255,255,255,0.2); }
+
+        /* 牆壁狀態 */
+        .wall-filled { background: #facc15 !important; box-shadow: 0 0 8px rgba(250, 204, 21, 0.6); cursor: not-allowed; }
+        .wall-pending { background: #fb923c !important; }
+        .wall-highlight { background: rgba(251, 146, 60, 0.5) !important; box-shadow: 0 0 5px rgba(251, 146, 60, 0.5); cursor: pointer; }
+
+        .player-emoji { transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94); z-index: 10; }
+        .flipped { transform: rotate(180deg); }
+
+        #status-bar { 
+            margin: 10px 0; font-size: 1.1em; font-weight: bold; 
+            background: rgba(0,0,0,0.3); padding: 8px 16px; border-radius: 20px;
+            color: #facc15; text-shadow: 0 2px 4px rgba(0,0,0,0.3); text-align: center;
+        }
+        #wall-count { color: #94a3b8; font-weight: bold; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="screen-home" class="screen active">
+        <h1 class="gradient-text">🎮 步步為營 大廳</h1>
+        <div id="room-list-container" class="card">
+            <h3>可加入的房間</h3>
+            <div id="room-list">讀取中...</div>
+        </div>
+        <button class="btn btn-green" id="btn-show-create">創立房間</button>
+    </div>
+
+    <div id="screen-create" class="screen">
+        <div class="card">
+            <h2 class="gradient-text">創立新房間</h2>
+            <input type="text" id="input-room-name" value="步步為營" placeholder="房間名稱">
+            <input type="password" id="input-room-pass" placeholder="密碼 (空白為無)">
+            <button class="btn btn-green" id="btn-create-room">確認創立</button>
+            <button class="btn" style="background:transparent; border:1px solid #475569; color:#cbd5e1; box-shadow:none;" onclick="switchScreen('screen-home')">返回</button>
+        </div>
+    </div>
+
+    <div id="screen-join" class="screen">
+        <div class="card">
+            <h2 class="gradient-text">加入房間</h2>
+            <input type="text" id="input-nickname" placeholder="您的暱稱">
+            <input type="text" id="input-emoji" placeholder="點此輸入代表 Emoji 🏳️" maxlength="2">
+            <input type="password" id="input-join-pass" placeholder="輸入房間密碼 (若有)">
+            <button class="btn btn-green" id="btn-join-room">進入</button>
+            <button class="btn" style="background:transparent; border:1px solid #475569; color:#cbd5e1; box-shadow:none;" onclick="switchScreen('screen-home')">返回</button>
+        </div>
+    </div>
+
+    <div id="screen-game" class="screen">
+        <div id="status-bar">等待玩家中...</div>
+        <div id="wall-count"></div>
+        
+        <div id="game-container">
+            <div class="bank-label">⬆️ 對岸 (P2 的起始區) ⬆️</div>
+            <div id="board-container">
+                <div id="board"></div>
+            </div>
+            <div class="bank-label">⬇️ 我方 (P1 的起始區) ⬇️</div>
+        </div>
+        
+        <div style="margin-top: 15px; display: flex; gap: 10px; width: 100%; max-width: 400px;">
+            <button class="btn btn-green" id="btn-start-game" style="display:none;">開始同機對戰</button>
+            <button class="btn btn-red" id="btn-leave-room">離開房間</button>
+        </div>
+    </div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+    import { getDatabase, ref, set, push, onValue, update, get, remove, onDisconnect } 
+        from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyC7PZLTTNf17cfp9gCHudWiWX8SYPSCdDI",
+        authDomain: "onlineeasyraygame.firebaseapp.com",
+        databaseURL: "https://onlineeasyraygame-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "onlineeasyraygame",
+        storageBucket: "onlineeasyraygame.firebasestorage.app",
+        messagingSenderId: "622138442346",
+        appId: "1:622138442346:web:375980b448fb9b3f428013",
+        measurementId: "G-ZDEGMGYGVB"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    let currentRoomId = null;
+    let myPlayerId = null;
+    let isHost = false;
+    let gameState = null;
+    let localMode = false;
+    let selectedPawn = false;
+    let pendingWall = null; // 新增：暫存已點擊一半的牆壁
+
+    window.switchScreen = function(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+    };
+
+    document.getElementById('btn-show-create').addEventListener('click', () => switchScreen('screen-create'));
+
+    const roomsRef = ref(db, 'quoridor_rooms');
+    onValue(roomsRef, (snapshot) => {
+        const listDiv = document.getElementById('room-list');
+        listDiv.innerHTML = '';
+        if (!snapshot.exists()) {
+            listDiv.innerHTML = '<div style="color:var(--text-muted);">目前沒有房間，趕快創立一個吧！</div>';
+            return;
+        }
+        snapshot.forEach((child) => {
+            const room = child.val();
+            if(room.status === 'waiting') {
+                const div = document.createElement('div');
+                div.className = 'room-item';
+                const needPass = room.password ? ' 🔒' : '';
+                div.innerHTML = `
+                    <span style="font-weight:bold;">${room.name} ${needPass} (${room.players ? Object.keys(room.players).length : 0}/2)</span>
+                    <button class="btn btn-green" onclick="prepareJoin('${child.key}', ${!!room.password})">加入</button>
+                `;
+                listDiv.appendChild(div);
+            }
+        });
+    });
+
+    document.getElementById('btn-create-room').addEventListener('click', async () => {
+        const name = document.getElementById('input-room-name').value || '步步為營';
+        const pass = document.getElementById('input-room-pass').value;
+        const newRoomRef = push(roomsRef);
+        await set(newRoomRef, {
+            name, password: pass, status: 'waiting', turn: 0,
+            board: { walls: [], p1: null, p2: null }
+        });
+        currentRoomId = newRoomRef.key;
+        isHost = true;
+        prepareJoin(currentRoomId, false, true);
+    });
+
+    window.prepareJoin = function(roomId, needsPass, isCreator = false) {
+        currentRoomId = roomId;
+        document.getElementById('input-join-pass').style.display = (needsPass && !isCreator) ? 'block' : 'none';
+        switchScreen('screen-join');
+    };
+
+    document.getElementById('btn-join-room').addEventListener('click', async () => {
+        const nick = document.getElementById('input-nickname').value;
+        const emoji = document.getElementById('input-emoji').value;
+        const pass = document.getElementById('input-join-pass').value;
+
+        if (!nick || !emoji) return alert("請填寫暱稱與代表 Emoji！");
+
+        const snapshot = await get(ref(db, `quoridor_rooms/${currentRoomId}`));
+        const room = snapshot.val();
+
+        if (room.password && room.password !== pass && !isHost) return alert("密碼錯誤！");
+        if (room.players) {
+            const existingPlayers = Object.values(room.players);
+            if (existingPlayers.length >= 2) return alert("房間已滿！");
+            if (existingPlayers.some(p => p.emoji === emoji)) return alert("這 Emoji 被對手選走囉！");
+        }
+
+        myPlayerId = push(ref(db, `quoridor_rooms/${currentRoomId}/players`)).key;
+        const playerIndex = (!room.players || Object.keys(room.players).length === 0) ? 'p1' : 'p2';
+        
+        await update(ref(db, `quoridor_rooms/${currentRoomId}/players/${myPlayerId}`), {
+            name: nick, emoji: emoji, id: playerIndex, wallsLeft: 10
+        });
+
+        onDisconnect(ref(db, `quoridor_rooms/${currentRoomId}/players/${myPlayerId}`)).remove();
+        switchScreen('screen-game');
+        initGameListener();
+    });
+
+    function initGameListener() {
+        onValue(ref(db, `quoridor_rooms/${currentRoomId}`), (snapshot) => {
+            if (!snapshot.exists()) {
+                alert("房間已關閉");
+                location.reload(); return;
+            }
+            gameState = snapshot.val();
+            updateUI();
+        });
+    }
+
+    document.getElementById('btn-start-game').addEventListener('click', async () => {
+        const pCount = Object.keys(gameState.players || {}).length;
+        if (pCount === 1) {
+            localMode = true;
+            await update(ref(db, `quoridor_rooms/${currentRoomId}/players/p2_local`), {
+                name: "對面玩家", emoji: "🙃", id: 'p2', wallsLeft: 10
+            });
+        }
+        await update(ref(db, `quoridor_rooms/${currentRoomId}`), {
+            status: 'playing', turn: 'p1',
+            board: {
+                p1: { x: 8, y: 20 }, // 獨立在最底端 Bank
+                p2: { x: 8, y: 0 },  // 獨立在最上端 Bank
+                walls: []
+            }
+        });
+    });
+
+    document.getElementById('btn-leave-room').addEventListener('click', () => {
+        remove(ref(db, `quoridor_rooms/${currentRoomId}/players/${myPlayerId}`));
+        location.reload();
+    });
+
+    // 建立 11行 x 9列 的棋盤
+    function createBoardUI() {
+        const board = document.getElementById('board');
+        board.innerHTML = '';
+        // Y 從 0 到 20 (總共11個Cell)
+        for (let y = 0; y <= 20; y++) {
+            for (let x = 0; x <= 16; x++) {
+                const div = document.createElement('div');
+                div.dataset.x = x;
+                div.dataset.y = y;
+                
+                if (x % 2 === 0 && y % 2 === 0) {
+                    div.className = 'cell';
+                    if (y === 0 || y === 20) div.classList.add('bank-cell');
+                    div.onclick = () => handleCellClick(x, y);
+                } else if (x % 2 !== 0 && y % 2 === 0) {
+                    div.className = 'wall-v';
+                    if (y >= 2 && y <= 18) {
+                        div.onclick = () => handleWallClick(x, y, 'v');
+                    } else { div.style.cursor = 'default'; }
+                } else if (x % 2 === 0 && y % 2 !== 0) {
+                    div.className = 'wall-h';
+                    if (y >= 3 && y <= 17) {
+                        div.onclick = () => handleWallClick(x, y, 'h');
+                    } else { div.style.cursor = 'default'; }
+                } else {
+                    div.className = 'wall-c';
+                }
+                board.appendChild(div);
+            }
+        }
+    }
+    createBoardUI();
+
+    function updateUI() {
+        if (!gameState) return;
+        const players = gameState.players ? Object.values(gameState.players) : [];
+        const me = players.find(p => p.id === (isHost ? 'p1' : 'p2')) || players[0];
+        
+        const status = document.getElementById('status-bar');
+        const startBtn = document.getElementById('btn-start-game');
+        
+        if (gameState.status === 'waiting') {
+            status.innerText = `房間：${gameState.name} | 等待中 (${players.length}/2)`;
+            if (isHost) startBtn.style.display = 'block';
+        } else if (gameState.status === 'playing') {
+            startBtn.style.display = 'none';
+            const isMyTurn = (localMode && isHost) || (me && gameState.turn === me.id);
+            const turnName = gameState.turn === 'p1' ? players.find(p=>p.id==='p1').name : players.find(p=>p.id==='p2').name;
+            status.innerText = isMyTurn ? "👉 現在輪到你了！" : `⏳ 等待 ${turnName} 行動...`;
+            status.style.color = isMyTurn ? "#10b981" : "#facc15";
+
+            renderBoard();
+        } else if (gameState.status === 'finished') {
+            status.innerText = `🎉 遊戲結束！贏家：${gameState.winner}`;
+        }
+    }
+
+    function renderBoard() {
+        document.querySelectorAll('.cell').forEach(c => c.classList.remove('valid-move'));
+        document.querySelectorAll('.cell > span').forEach(s => s.remove());
+        document.querySelectorAll('.wall-h, .wall-v, .wall-c').forEach(w => {
+            w.classList.remove('wall-filled', 'wall-pending', 'wall-highlight');
+        });
+
+        // 畫牆壁
+        const walls = gameState.board?.walls || [];
+        walls.forEach(w => {
+            const el1 = document.querySelector(`[data-x="${w.x}"][data-y="${w.y}"]`);
+            let el2, el3;
+            if (w.type === 'h') {
+                el2 = document.querySelector(`[data-x="${w.x+1}"][data-y="${w.y}"]`);
+                el3 = document.querySelector(`[data-x="${w.x+2}"][data-y="${w.y}"]`);
+            } else {
+                el2 = document.querySelector(`[data-x="${w.x}"][data-y="${w.y+1}"]`);
+                el3 = document.querySelector(`[data-x="${w.x}"][data-y="${w.y+2}"]`);
+            }
+            if(el1) el1.classList.add('wall-filled');
+            if(el2) el2.classList.add('wall-filled');
+            if(el3) el3.classList.add('wall-filled');
+        });
+
+        // 畫暫存一半的牆壁 (本機預覽用)
+        if (pendingWall) {
+            const el = document.querySelector(`[data-x="${pendingWall.x}"][data-y="${pendingWall.y}"]`);
+            if (el) el.classList.add('wall-pending');
+            
+            pendingWall.validHalves.forEach(half => {
+                const hEl = document.querySelector(`[data-x="${half.x}"][data-y="${half.y}"]`);
+                if (hEl) hEl.classList.add('wall-highlight');
+            });
+        }
+
+        // 畫玩家
+        const p1 = Object.values(gameState.players).find(p => p.id === 'p1');
+        const p2 = Object.values(gameState.players).find(p => p.id === 'p2');
+        if (gameState.board?.p1) placePlayer(gameState.board.p1.x, gameState.board.p1.y, p1.emoji, false);
+        if (gameState.board?.p2) placePlayer(gameState.board.p2.x, gameState.board.p2.y, p2.emoji, localMode);
+
+        if (p1 && p2) {
+            document.getElementById('wall-count').innerText = 
+                `🧱 剩餘牆壁 - 你: ${gameState.turn === 'p1' ? p1.wallsLeft : p2.wallsLeft}`;
+        }
+    }
+
+    function placePlayer(x, y, emoji, flip) {
+        const cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+        if (cell) {
+            const span = document.createElement('span');
+            span.className = 'player-emoji' + (flip ? ' flipped' : '');
+            span.innerText = emoji;
+            span.onclick = (e) => {
+                e.stopPropagation();
+                if (pendingWall) { pendingWall = null; renderBoard(); } // 點擊棋子取消建牆
+                const isMyTurn = (localMode && isHost) || (gameState.players[myPlayerId].id === gameState.turn);
+                if (isMyTurn && gameState.status === 'playing') previewMoves(x, y);
+            };
+            cell.appendChild(span);
+        }
+    }
+
+    function isWallBlocked(x, y) {
+        if (!gameState || !gameState.board || !gameState.board.walls) return false;
+        for (let w of gameState.board.walls) {
+            if (w.type === 'h') {
+                if (y === w.y && x >= w.x && x <= w.x + 2) return true;
+            } else {
+                if (x === w.x && y >= w.y && y <= w.y + 2) return true;
+            }
+        }
+        return false;
+    }
+
+    function getValidMoves(x, y) {
+        const moves = [];
+        const directions = [[0, -2], [0, 2], [-2, 0], [2, 0]];
+        const opponent = gameState.turn === 'p1' ? gameState.board.p2 : gameState.board.p1;
+
+        directions.forEach(d => {
+            const nx = x + d[0], ny = y + d[1];
+            const wx = x + d[0]/2, wy = y + d[1]/2;
+
+            if (nx >= 0 && nx <= 16 && ny >= 0 && ny <= 20 && !isWallBlocked(wx, wy)) {
+                if (nx === opponent.x && ny === opponent.y) {
+                    const nnx = nx + d[0], nny = ny + d[1];
+                    const nwx = nx + d[0]/2, nwy = ny + d[1]/2;
+                    if (nnx >= 0 && nnx <= 16 && nny >= 0 && nny <= 20 && !isWallBlocked(nwx, nwy)) {
+                        moves.push({x: nnx, y: nny});
+                    } else {
+                        const crossDirs = d[0] === 0 ? [[-2, 0], [2, 0]] : [[0, -2], [0, 2]];
+                        crossDirs.forEach(cd => {
+                            const dx = nx + cd[0], dy = ny + cd[1];
+                            const dwx = nx + cd[0]/2, dwy = ny + cd[1]/2;
+                            if (dx >= 0 && dx <= 16 && dy >= 0 && dy <= 20 && !isWallBlocked(dwx, dwy)) {
+                                moves.push({x: dx, y: dy});
+                            }
+                        });
+                    }
+                } else { moves.push({x: nx, y: ny}); }
+            }
+        });
+        return moves;
+    }
+
+    function previewMoves(x, y) {
+        document.querySelectorAll('.cell').forEach(c => c.classList.remove('valid-move'));
+        selectedPawn = true;
+        const validMoves = getValidMoves(x, y);
+        validMoves.forEach(m => {
+            const cell = document.querySelector(`[data-x="${m.x}"][data-y="${m.y}"]`);
+            if (cell) cell.classList.add('valid-move');
+        });
+    }
+
+    async function handleCellClick(x, y) {
+        const isMyTurn = (localMode && isHost) || (gameState.players[myPlayerId].id === gameState.turn);
+        if (pendingWall) {
+            pendingWall = null;
+            renderBoard();
+        }
+
+        if (!selectedPawn || !isMyTurn || gameState.status !== 'playing') return;
+        
+        const cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+        if (!cell || !cell.classList.contains('valid-move')) return; 
+
+        const currentTurn = gameState.turn;
+        const nextTurn = currentTurn === 'p1' ? 'p2' : 'p1';
+
+        const updateData = { [`board/${currentTurn}`]: {x, y}, turn: nextTurn };
+
+        // 終點判斷 (P1走到Y=0, P2走到Y=20)
+        if ((currentTurn === 'p1' && y === 0) || (currentTurn === 'p2' && y === 20)) {
+            updateData.status = 'finished';
+            updateData.winner = Object.values(gameState.players).find(p=>p.id===currentTurn).name;
+        }
+
+        selectedPawn = false;
+        await update(ref(db, `quoridor_rooms/${currentRoomId}`), updateData);
+    }
+
+    async function handleWallClick(x, y, type) {
+        const isMyTurn = (localMode && isHost) || (gameState.players[myPlayerId].id === gameState.turn);
+        if (!isMyTurn || gameState.status !== 'playing') return;
+
+        // 若已有待放置的一半牆壁
+        if (pendingWall) {
+            const isSecondHalf = pendingWall.validHalves.find(h => h.x === x && h.y === y && pendingWall.type === type);
+            if (isSecondHalf) {
+                // 點擊了合法的第二部分，準備寫入整道牆 (存最左/最上的座標)
+                const fullX = type === 'h' ? Math.min(x, pendingWall.x) : x;
+                const fullY = type === 'h' ? y : Math.min(y, pendingWall.y);
+                await placeFullWall(fullX, fullY, type);
+                return;
+            } else {
+                // 點到不相干的地方，取消原本的
+                pendingWall = null; 
+            }
+        }
+
+        // 作為新的第一半牆壁
+        if (isWallBlocked(x, y)) return; 
+        
+        let validHalves = [];
+        if (type === 'h') {
+            if (x + 2 <= 16 && !isWallBlocked(x + 1, y) && !isWallBlocked(x + 2, y)) validHalves.push({x: x + 2, y: y});
+            if (x - 2 >= 0 && !isWallBlocked(x - 1, y) && !isWallBlocked(x - 2, y)) validHalves.push({x: x - 2, y: y});
+        } else {
+            if (y + 2 <= 18 && !isWallBlocked(x, y + 1) && !isWallBlocked(x, y + 2)) validHalves.push({x: x, y: y + 2});
+            if (y - 2 >= 2 && !isWallBlocked(x, y - 1) && !isWallBlocked(x, y - 2)) validHalves.push({x: x, y: y - 2});
+        }
+
+        if (validHalves.length > 0) {
+            pendingWall = {x, y, type, validHalves};
+            renderBoard();
+        }
+    }
+
+    async function placeFullWall(x, y, type) {
+        if (!canReachEnd(x, y, type)) {
+            alert("不能完全堵死自己或對手的路徑！（關廁所違規），請重來！");
+            pendingWall = null;
+            renderBoard();
+            return;
+        }
+
+        const currentTurn = gameState.turn;
+        const playerKey = Object.keys(gameState.players).find(k => gameState.players[k].id === currentTurn);
+        const wallsLeft = gameState.players[playerKey].wallsLeft;
+
+        if (wallsLeft <= 0) { alert("牆壁用完了！"); pendingWall = null; renderBoard(); return; }
+
+        const currentWalls = gameState.board.walls || [];
+        currentWalls.push({x, y, type});
+        pendingWall = null;
+        
+        await update(ref(db, `quoridor_rooms/${currentRoomId}`), {
+            'board/walls': currentWalls,
+            turn: currentTurn === 'p1' ? 'p2' : 'p1',
+            [`players/${playerKey}/wallsLeft`]: wallsLeft - 1
+        });
+    }
+
+    function canReachEnd(testStartX, testStartY, testType) {
+        const simulatedWall = {x: testStartX, y: testStartY, type: testType};
+        const oldWalls = gameState.board.walls || [];
+        gameState.board.walls = [...oldWalls, simulatedWall];
+
+        const p1Pass = bfs(gameState.board.p1.x, gameState.board.p1.y, 0);
+        const p2Pass = bfs(gameState.board.p2.x, gameState.board.p2.y, 20);
+
+        gameState.board.walls = oldWalls; // 恢復
+        return p1Pass && p2Pass;
+    }
+
+    function bfs(startX, startY, targetY) {
+        const queue = [{x: startX, y: startY}];
+        const visited = new Set();
+        visited.add(`${startX},${startY}`);
+        const directions = [[0, -2], [0, 2], [-2, 0], [2, 0]];
+
+        while (queue.length > 0) {
+            const curr = queue.shift();
+            if (curr.y === targetY) return true; 
+
+            for (let d of directions) {
+                const nx = curr.x + d[0], ny = curr.y + d[1];
+                const wx = curr.x + d[0]/2, wy = curr.y + d[1]/2;
+                if (nx >= 0 && nx <= 16 && ny >= 0 && ny <= 20) {
+                    if (!visited.has(`${nx},${ny}`) && !isWallBlocked(wx, wy)) {
+                        visited.add(`${nx},${ny}`);
+                        queue.push({x: nx, y: ny});
+                    }
+                }
+            }
+        }
+        return false;
+    }
+</script>
+</body>
+</html>
