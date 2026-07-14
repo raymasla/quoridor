@@ -376,7 +376,6 @@
             <div class="bank-label" id="bank-label-bottom">⬇️ 我方 (P1 的起始區) ⬇️</div>
         </div>
 
-        <!-- 毀旗(上一步)按鈕 & 其他操作 -->
         <div id="action-bar">
             <button class="btn btn-orange" id="btn-undo" style="display:none;">🏳️ 毀旗 (上一步)</button>
             <button class="btn btn-green" id="btn-start-game" style="display:none;">開始同機對戰</button>
@@ -384,7 +383,6 @@
         </div>
     </div>
 
-    <!-- 勝利動畫遮罩 -->
     <div id="win-overlay">
         <div class="confetti-wrapper" id="confetti-wrapper"></div>
         <div class="win-card">
@@ -576,12 +574,14 @@
                     div.onclick = () => handleCellClick(x, y);
                 } else if (x % 2 !== 0 && y % 2 === 0) {
                     div.className = 'wall-v';
-                    if (y >= 2 && y <= 18) {
+                    // 🔥【修改】：允許直牆放置到岸邊 Y=0 到 Y=20 的範圍
+                    if (y >= 0 && y <= 20) {
                         div.onclick = () => handleWallClick(x, y, 'v');
                     } else { div.style.cursor = 'default'; }
                 } else if (x % 2 === 0 && y % 2 !== 0) {
                     div.className = 'wall-h';
-                    if (y >= 3 && y <= 17) {
+                    // 🔥【修改】：允許橫牆放置到緊貼岸邊的縫隙 Y=1 到 Y=19 的範圍
+                    if (y >= 1 && y <= 19) {
                         div.onclick = () => handleWallClick(x, y, 'h');
                     } else { div.style.cursor = 'default'; }
                 } else {
@@ -842,8 +842,9 @@
             if (x + 2 <= 16 && !isWallBlocked(x + 1, y) && !isWallBlocked(x + 2, y)) validHalves.push({x: x + 2, y: y});
             if (x - 2 >= 0 && !isWallBlocked(x - 1, y) && !isWallBlocked(x - 2, y)) validHalves.push({x: x - 2, y: y});
         } else {
-            if (y + 2 <= 18 && !isWallBlocked(x, y + 1) && !isWallBlocked(x, y + 2)) validHalves.push({x: x, y: y + 2});
-            if (y - 2 >= 2 && !isWallBlocked(x, y - 1) && !isWallBlocked(x, y - 2)) validHalves.push({x: x, y: y - 2});
+            // 🔥【修改】：配合前面 Y 軸範圍加大的設定，讓直牆延伸檢查時能涵蓋 Y=0 與 Y=20 的極限邊界
+            if (y + 2 <= 20 && !isWallBlocked(x, y + 1) && !isWallBlocked(x, y + 2)) validHalves.push({x: x, y: y + 2});
+            if (y - 2 >= 0 && !isWallBlocked(x, y - 1) && !isWallBlocked(x, y - 2)) validHalves.push({x: x, y: y - 2});
         }
 
         if (validHalves.length > 0) {
