@@ -330,6 +330,54 @@
         #bank-label-top, #bank-label-bottom {
             transition: opacity 0.3s;
         }
+
+        /* --- 咖啡色按鈕 --- */
+        .btn-coffee { background: linear-gradient(135deg, #7c5c3e, #a97142); }
+
+        .room-tag {
+            font-size: 12px; font-weight: bold; color: #d6b08c;
+            background: rgba(169,113,66,0.2); border: 1px solid rgba(169,113,66,0.5);
+            border-radius: 999px; padding: 2px 8px; margin-left: 6px;
+        }
+
+        /* --- 自訂棋盤設定介面 --- */
+        .size-row {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 10px; margin: 10px 0;
+        }
+        .size-row .label { color: var(--text-muted); font-weight: bold; }
+        .stepper { display: flex; align-items: center; gap: 12px; }
+        .stepper button {
+            width: 38px; height: 38px; border-radius: 10px; border: var(--glass-border);
+            background: rgba(255,255,255,0.06); color: var(--text-main);
+            font-size: 20px; font-weight: bold; cursor: pointer; transition: 0.2s;
+        }
+        .stepper button:hover { background: rgba(255,255,255,0.16); }
+        .stepper .value { min-width: 32px; text-align: center; font-size: 20px; font-weight: 900; color: #facc15; }
+
+        #setup-board-wrap {
+            display: flex; justify-content: center; align-items: center;
+            width: 100%; overflow: auto; padding: 6px 0;
+        }
+        #setup-board {
+            display: grid; gap: 4px; margin: 0 auto;
+            background: #1e293b; padding: 12px; border-radius: 12px;
+            border: 2px solid #334155; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .setup-cell {
+            background: #334155; border-radius: 6px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 900; border: 2px solid transparent; transition: 0.15s;
+            user-select: none;
+        }
+        .setup-cell:hover { transform: scale(1.08); }
+        .setup-cell.setup-start { box-shadow: 0 0 10px currentColor; }
+
+        #setup-switch-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .setup-switch-btn { flex: 1 1 40%; margin-top: 0 !important; padding: 10px !important; font-size: 14px !important; }
+        #setup-hint { color: var(--text-muted); font-size: 13px; text-align: center; margin-top: 10px; }
+
+        .goal-cell { border: 1px solid rgba(255,255,255,0.25); }
     </style>
 </head>
 <body>
@@ -340,7 +388,8 @@
             <h3>可加入的房間</h3>
             <div id="room-list">讀取中...</div>
         </div>
-        <button class="btn btn-green" id="btn-show-create">創立房間</button>
+        <button class="btn btn-green" id="btn-show-create">創立標準棋盤</button>
+        <button class="btn btn-coffee" id="btn-show-custom">創立自訂棋盤</button>
     </div>
 
     <div id="screen-create" class="screen">
@@ -349,6 +398,48 @@
             <input type="text" id="input-room-name" value="步步為營" placeholder="房間名稱">
             <input type="password" id="input-room-pass" placeholder="密碼 (空白為無)">
             <button class="btn btn-green" id="btn-create-room">確認創立</button>
+            <button class="btn" style="background:transparent; border:1px solid #475569; color:#cbd5e1; box-shadow:none;" onclick="switchScreen('screen-home')">返回</button>
+        </div>
+    </div>
+
+    <!-- 自訂棋盤設定 -->
+    <div id="screen-custom" class="screen">
+        <div class="card">
+            <h2 class="gradient-text">自訂棋盤設定</h2>
+            <div class="size-row">
+                <span class="label">棋盤寬（欄）</span>
+                <div class="stepper">
+                    <button onclick="adjustSize('cols', -1)">－</button>
+                    <span class="value" id="size-cols">7</span>
+                    <button onclick="adjustSize('cols', 1)">＋</button>
+                </div>
+            </div>
+            <div class="size-row">
+                <span class="label">棋盤長（列）</span>
+                <div class="stepper">
+                    <button onclick="adjustSize('rows', -1)">－</button>
+                    <span class="value" id="size-rows">7</span>
+                    <button onclick="adjustSize('rows', 1)">＋</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="setup-board-wrap">
+            <div id="setup-board"></div>
+        </div>
+
+        <div class="card">
+            <button class="btn" id="btn-setup-state">加入玩家一</button>
+            <div id="setup-switch-row" style="display:none;"></div>
+            <button class="btn btn-green" id="btn-setup-next">確定／下一位</button>
+            <button class="btn btn-orange" id="btn-setup-done" style="display:none;">完成玩家設定，進入終點佈置</button>
+            <div id="setup-hint"></div>
+        </div>
+
+        <div class="card">
+            <input type="text" id="input-custom-name" value="自訂棋盤" placeholder="房間名稱">
+            <input type="password" id="input-custom-pass" placeholder="密碼 (空白為無)">
+            <button class="btn btn-green" id="btn-setup-create">建立房間</button>
             <button class="btn" style="background:transparent; border:1px solid #475569; color:#cbd5e1; box-shadow:none;" onclick="switchScreen('screen-home')">返回</button>
         </div>
     </div>
@@ -395,7 +486,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-    import { getDatabase, ref, set, push, onValue, update, get, remove, onDisconnect } 
+    import { getDatabase, ref, set, push, onValue, update, get, remove }
         from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
 
     const firebaseConfig = {
@@ -412,6 +503,15 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
+    // ===== 玩家代表色 =====
+    const PLAYER_COLORS = ['#ef4444', '#3b82f6', '#10b981', '#facc15'];
+    const PLAYER_RGBA   = ['239,68,68', '59,130,246', '16,185,129', '250,204,21'];
+    const PLAYER_NAMES  = ['玩家一', '玩家二', '玩家三', '玩家四'];
+    const ROLE_OF = i => 'p' + (i + 1);
+    const IDX_OF = role => parseInt(String(role).slice(1), 10) - 1;
+
+    const DEFAULT_COLS = 9, DEFAULT_ROWS = 11;
+
     let currentRoomId = null;
     let myPlayerId = null;
     let isHost = false;
@@ -419,9 +519,31 @@
     let localMode = false;
     let selectedPawn = false;
     let pendingWall = null;
-    // 歷史記錄 (用於毀旗/上一步)
     let moveHistory = [];
-    let winShown = false; // 避免勝利動畫重複觸發
+    let winShown = false;
+    let boardBuiltKey = '';
+
+    // ===== 棋盤參數（由房間設定推導） =====
+    function cfgCols() { return gameState?.cols || DEFAULT_COLS; }
+    function cfgRows() { return gameState?.rows || DEFAULT_ROWS; }
+    function maxX() { return (cfgCols() - 1) * 2; }
+    function maxY() { return (cfgRows() - 1) * 2; }
+    function isCustom() { return gameState?.mode === 'custom'; }
+    function maxPlayers() { return gameState?.maxPlayers || 2; }
+    function activeRoles() {
+        const n = maxPlayers();
+        return Array.from({ length: n }, (_, i) => ROLE_OF(i));
+    }
+    // 標準棋盤的預設終點（整排底/頂）
+    function defaultGoals(role, cols, rows) {
+        const y = role === 'p1' ? 0 : (rows - 1) * 2;
+        return Array.from({ length: cols }, (_, i) => ({ x: i * 2, y }));
+    }
+    function goalsOf(role) {
+        const g = gameState?.config?.goals?.[role];
+        if (g && g.length) return g;
+        return defaultGoals(role, cfgCols(), cfgRows());
+    }
 
     window.switchScreen = function(screenId) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -440,12 +562,16 @@
         }
         snapshot.forEach((child) => {
             const room = child.val();
-            if(room.status === 'waiting') {
+            if (room.status === 'waiting') {
                 const div = document.createElement('div');
                 div.className = 'room-item';
                 const needPass = room.password ? ' 🔒' : '';
+                const cap = room.maxPlayers || 2;
+                const count = room.players ? Object.keys(room.players).length : 0;
+                const tag = room.mode === 'custom'
+                    ? `<span class="room-tag">自訂 ${room.cols}x${room.rows}</span>` : '';
                 div.innerHTML = `
-                    <span style="font-weight:bold;">${room.name} ${needPass} (${room.players ? Object.keys(room.players).length : 0}/2)</span>
+                    <span style="font-weight:bold;">${room.name} ${needPass} (${count}/${cap}) ${tag}</span>
                     <button class="btn btn-green" onclick="prepareJoin('${child.key}', ${!!room.password})">加入</button>
                 `;
                 listDiv.appendChild(div);
@@ -453,12 +579,21 @@
         });
     });
 
+    // ===== 建立標準房間 =====
     document.getElementById('btn-create-room').addEventListener('click', async () => {
         const name = document.getElementById('input-room-name').value || '步步為營';
         const pass = document.getElementById('input-room-pass').value;
         const newRoomRef = push(roomsRef);
         await set(newRoomRef, {
             name, password: pass, status: 'waiting', turn: 0,
+            mode: 'standard', cols: DEFAULT_COLS, rows: DEFAULT_ROWS, maxPlayers: 2,
+            config: {
+                starts: { p1: { x: 8, y: 20 }, p2: { x: 8, y: 0 } },
+                goals: {
+                    p1: defaultGoals('p1', DEFAULT_COLS, DEFAULT_ROWS),
+                    p2: defaultGoals('p2', DEFAULT_COLS, DEFAULT_ROWS)
+                }
+            },
             board: { walls: [], p1: null, p2: null }
         });
         currentRoomId = newRoomRef.key;
@@ -466,6 +601,233 @@
         prepareJoin(currentRoomId, false, true);
     });
 
+    /* =========================================================
+       ============  自訂棋盤設定介面 (Custom Setup)  ============
+       ========================================================= */
+    const setup = {
+        cols: 7, rows: 7,
+        phase: 'starts',      // 'starts' | 'goals'
+        currentIdx: 0,
+        starts: [null, null, null, null],
+        goals: [[], [], [], []]
+    };
+
+    document.getElementById('btn-show-custom').addEventListener('click', () => {
+        setup.cols = 7; setup.rows = 7;
+        setup.phase = 'starts'; setup.currentIdx = 0;
+        setup.starts = [null, null, null, null];
+        setup.goals = [[], [], [], []];
+        setup.deleteTarget = null;
+        renderSetup();
+        switchScreen('screen-custom');
+    });
+
+    function setupPlayerCount() { return setup.starts.filter(Boolean).length; }
+
+    function clampSize(v) { return Math.max(3, Math.min(15, v)); }
+
+    function resetSetupPlayers() {
+        setup.starts = [null, null, null, null];
+        setup.goals = [[], [], [], []];
+        setup.phase = 'starts';
+        setup.currentIdx = 0;
+        setup.deleteTarget = null;
+    }
+
+    window.adjustSize = function(which, delta) {
+        const next = which === 'cols' ? clampSize(setup.cols + delta) : clampSize(setup.rows + delta);
+        if (next === (which === 'cols' ? setup.cols : setup.rows)) return;
+        if (setupPlayerCount() > 0) {
+            if (!confirm('調整棋盤需先清出所有已設定的玩家，確定要繼續嗎？')) return;
+            resetSetupPlayers();
+        }
+        if (which === 'cols') setup.cols = clampSize(setup.cols + delta);
+        else setup.rows = clampSize(setup.rows + delta);
+        // 移除超出範圍的設定
+        const cx = (setup.cols - 1) * 2, cy = (setup.rows - 1) * 2;
+        setup.starts = setup.starts.map(s => (s && s.x <= cx && s.y <= cy) ? s : null);
+        setup.goals = setup.goals.map(list => list.filter(g => g.x <= cx && g.y <= cy));
+        renderSetup();
+    };
+
+    function goalOwnersAt(x, y) {
+        const owners = [];
+        setup.goals.forEach((list, i) => {
+            if (setup.starts[i] && list.some(g => g.x === x && g.y === y)) owners.push(i);
+        });
+        return owners;
+    }
+
+    // 多色格 CSS（1~4 位玩家）
+    function multiColorStyle(owners) {
+        const c = owners.map(i => `rgba(${PLAYER_RGBA[i]},0.55)`);
+        const glow = `box-shadow: 0 0 10px rgba(${PLAYER_RGBA[owners[0]]},0.7);`;
+        if (c.length === 1) return `background: ${c[0]}; ${glow}`;
+        if (c.length === 2) return `background: linear-gradient(135deg, ${c[0]} 0 50%, ${c[1]} 50% 100%); ${glow}`;
+        if (c.length === 3) return `background: conic-gradient(${c[0]} 0turn 0.3333turn, ${c[1]} 0.3333turn 0.6667turn, ${c[2]} 0.6667turn 1turn); ${glow}`;
+        return `background: conic-gradient(${c[0]} 0turn 0.25turn, ${c[1]} 0.25turn 0.5turn, ${c[2]} 0.5turn 0.75turn, ${c[3]} 0.75turn 1turn); ${glow}`;
+    }
+
+    function renderSetup() {
+        document.getElementById('size-cols').innerText = setup.cols;
+        document.getElementById('size-rows').innerText = setup.rows;
+
+        // --- 棋盤預覽 ---
+        const prev = document.getElementById('setup-board');
+        const size = Math.max(18, Math.min(38, Math.floor(320 / Math.max(setup.cols, setup.rows))));
+        prev.style.gridTemplateColumns = `repeat(${setup.cols}, ${size}px)`;
+        prev.innerHTML = '';
+        for (let r = 0; r < setup.rows; r++) {
+            for (let c = 0; c < setup.cols; c++) {
+                const x = c * 2, y = r * 2;
+                const d = document.createElement('div');
+                d.className = 'setup-cell';
+                d.style.width = size + 'px';
+                d.style.height = size + 'px';
+                d.style.fontSize = Math.round(size * 0.5) + 'px';
+
+                const owners = goalOwnersAt(x, y);
+                if (owners.length) d.setAttribute('style', d.getAttribute('style') + ';' + multiColorStyle(owners));
+
+                const startIdx = setup.starts.findIndex(s => s && s.x === x && s.y === y);
+                if (startIdx >= 0) {
+                    d.classList.add('setup-start');
+                    d.style.borderColor = PLAYER_COLORS[startIdx];
+                    d.style.color = PLAYER_COLORS[startIdx];
+                    d.innerText = String(startIdx + 1);
+                }
+                d.onclick = () => setupCellClick(x, y);
+                prev.appendChild(d);
+            }
+        }
+
+        // --- 操作按鈕 ---
+        const stateBtn = document.getElementById('btn-setup-state');
+        const nextBtn = document.getElementById('btn-setup-next');
+        const doneBtn = document.getElementById('btn-setup-done');
+        const switchRow = document.getElementById('setup-switch-row');
+        const hint = document.getElementById('setup-hint');
+        const idx = setup.currentIdx;
+        stateBtn.style.background = PLAYER_COLORS[idx];
+        stateBtn.style.color = idx === 3 ? '#1e293b' : '#fff';
+
+        if (setup.phase === 'starts') {
+            stateBtn.innerText = `加入${PLAYER_NAMES[idx]}`;
+            nextBtn.style.display = idx < 3 ? 'block' : 'none';
+            doneBtn.style.display = setupPlayerCount() >= 2 ? 'block' : 'none';
+            doneBtn.innerText = '完成玩家設定，進入終點佈置';
+            hint.innerText = '點擊格子設定出生點；點擊已放置的出生點可刪除該玩家。';
+            switchRow.innerHTML = '';
+            if (setup.deleteTarget !== null && setup.deleteTarget !== undefined && setup.starts[setup.deleteTarget]) {
+                const di = setup.deleteTarget;
+                const del = document.createElement('button');
+                del.className = 'btn btn-red setup-switch-btn';
+                del.style.flex = '1 1 100%';
+                del.innerText = `刪除${PLAYER_NAMES[di]}？`;
+                del.onclick = () => {
+                    setup.starts[di] = null;
+                    setup.goals[di] = [];
+                    setup.currentIdx = di;
+                    setup.deleteTarget = null;
+                    renderSetup();
+                };
+                switchRow.appendChild(del);
+                switchRow.style.display = 'flex';
+            } else {
+                switchRow.style.display = 'none';
+            }
+        } else {
+            stateBtn.innerText = `設定${PLAYER_NAMES[idx]}終點`;
+            nextBtn.style.display = 'none';
+            doneBtn.style.display = 'none';
+            hint.innerText = '點擊空地新增終點，點擊自己顏色的格子則移除。';
+            switchRow.style.display = 'flex';
+            switchRow.innerHTML = '';
+            setup.starts.forEach((s, i) => {
+                if (!s) return;
+                const b = document.createElement('button');
+                b.className = 'btn setup-switch-btn';
+                b.style.background = PLAYER_COLORS[i];
+                b.style.color = i === 3 ? '#1e293b' : '#fff';
+                b.style.opacity = i === idx ? '1' : '0.45';
+                b.innerText = PLAYER_NAMES[i];
+                b.onclick = () => { setup.currentIdx = i; renderSetup(); };
+                switchRow.appendChild(b);
+            });
+        }
+    }
+
+    function setupCellClick(x, y) {
+        const idx = setup.currentIdx;
+        if (setup.phase === 'starts') {
+            const taken = setup.starts.findIndex(s => s && s.x === x && s.y === y);
+            if (taken >= 0) {
+                // 點擊已放置的出生點 -> 顯示刪除按鈕
+                setup.deleteTarget = (setup.deleteTarget === taken) ? null : taken;
+                renderSetup();
+                return;
+            }
+            setup.deleteTarget = null;
+            setup.starts[idx] = { x, y };
+        } else {
+            const list = setup.goals[idx];
+            const at = list.findIndex(g => g.x === x && g.y === y);
+            if (at >= 0) list.splice(at, 1);
+            else list.push({ x, y });
+        }
+        renderSetup();
+    }
+
+    document.getElementById('btn-setup-next').addEventListener('click', () => {
+        if (!setup.starts[setup.currentIdx]) { alert(`請先設定${PLAYER_NAMES[setup.currentIdx]}的出生點！`); return; }
+        if (setup.currentIdx < 3) setup.currentIdx++;
+        renderSetup();
+    });
+
+    document.getElementById('btn-setup-done').addEventListener('click', () => {
+        if (setupPlayerCount() < 2) { alert('至少需要兩位玩家！'); return; }
+        // 壓縮玩家序號（避免中間有空缺）
+        const compactStarts = [], compactGoals = [];
+        setup.starts.forEach((s, i) => { if (s) { compactStarts.push(s); compactGoals.push(setup.goals[i]); } });
+        setup.starts = [...compactStarts, null, null, null, null].slice(0, 4);
+        setup.goals = [...compactGoals, [], [], [], []].slice(0, 4);
+        setup.phase = 'goals';
+        setup.currentIdx = 0;
+        setup.deleteTarget = null;
+        renderSetup();
+    });
+
+    document.getElementById('btn-setup-create').addEventListener('click', async () => {
+        const count = setupPlayerCount();
+        if (count < 2) { alert('至少需要兩位玩家才能建立房間！'); return; }
+        for (let i = 0; i < count; i++) {
+            if (!setup.goals[i] || setup.goals[i].length === 0) {
+                alert(`${PLAYER_NAMES[i]}還沒有設定任何終點！`); return;
+            }
+        }
+        const starts = {}, goals = {};
+        for (let i = 0; i < count; i++) {
+            starts[ROLE_OF(i)] = setup.starts[i];
+            goals[ROLE_OF(i)] = setup.goals[i];
+        }
+        const name = document.getElementById('input-custom-name').value || '自訂棋盤';
+        const pass = document.getElementById('input-custom-pass').value;
+        const board = { walls: [] };
+        for (let i = 0; i < count; i++) board[ROLE_OF(i)] = null;
+
+        const newRoomRef = push(roomsRef);
+        await set(newRoomRef, {
+            name, password: pass, status: 'waiting', turn: 0,
+            mode: 'custom', cols: setup.cols, rows: setup.rows, maxPlayers: count,
+            config: { starts, goals },
+            board
+        });
+        currentRoomId = newRoomRef.key;
+        isHost = true;
+        prepareJoin(currentRoomId, false, true);
+    });
+
+    /* ============ 加入房間 ============ */
     window.prepareJoin = function(roomId, needsPass, isCreator = false) {
         currentRoomId = roomId;
         document.getElementById('input-join-pass').style.display = (needsPass && !isCreator) ? 'block' : 'none';
@@ -481,22 +843,26 @@
 
         const snapshot = await get(ref(db, `quoridor_rooms/${currentRoomId}`));
         const room = snapshot.val();
+        const cap = room.maxPlayers || 2;
 
         if (room.password && room.password !== pass && !isHost) return alert("密碼錯誤！");
+        let playerIndex = 'p1';
         if (room.players) {
             const existingPlayers = Object.values(room.players);
-            if (existingPlayers.length >= 2) return alert("房間已滿！");
-            if (existingPlayers.some(p => p.emoji === emoji)) return alert("這 Emoji 被對手選走囉！");
+            if (existingPlayers.length >= cap) return alert("房間已滿！");
+            if (existingPlayers.some(p => p.emoji === emoji)) return alert("這 Emoji 被其他玩家選走囉！");
+            const used = new Set(existingPlayers.map(p => p.id));
+            for (let i = 0; i < cap; i++) {
+                if (!used.has(ROLE_OF(i))) { playerIndex = ROLE_OF(i); break; }
+            }
         }
 
         myPlayerId = push(ref(db, `quoridor_rooms/${currentRoomId}/players`)).key;
-        const playerIndex = (!room.players || Object.keys(room.players).length === 0) ? 'p1' : 'p2';
-        
         await update(ref(db, `quoridor_rooms/${currentRoomId}/players/${myPlayerId}`), {
             name: nick, emoji: emoji, id: playerIndex, wallsLeft: 10
         });
 
-        onDisconnect(ref(db, `quoridor_rooms/${currentRoomId}/players/${myPlayerId}`)).remove();
+        saveSession();
         switchScreen('screen-game');
         initGameListener();
     });
@@ -517,109 +883,246 @@
         });
     }
 
+    const LOCAL_NAMES  = ['玩家一(本機)', '對面玩家(本機)', '玩家三(本機)', '玩家四(本機)'];
+    const LOCAL_EMOJIS = ['🙂', '🙃', '🤖', '👻'];
+
     document.getElementById('btn-start-game').addEventListener('click', async () => {
-        const pCount = Object.keys(gameState.players || {}).length;
-        if (pCount === 1) {
-            localMode = true;
-            await update(ref(db, `quoridor_rooms/${currentRoomId}/players/p2_local`), {
-                name: "對面玩家", emoji: "🙃", id: 'p2', wallsLeft: 10
-            });
+        const players = Object.values(gameState.players || {});
+        const pCount = players.length;
+        const cap = maxPlayers();
+        if (pCount > 1 && pCount < cap) {
+            alert(`還有玩家空缺，需要 ${cap} 位玩家都到齊才能開始（目前 ${pCount} 位）`); return;
         }
-        moveHistory = []; // 重置歷史
-        await update(ref(db, `quoridor_rooms/${currentRoomId}`), {
-            status: 'playing', turn: 'p1',
-            board: {
-                p1: { x: 8, y: 20 }, // 獨立在最底端 Bank
-                p2: { x: 8, y: 0 },  // 獨立在最上端 Bank
-                walls: []
+        if (pCount === 1) {
+            // 單機（同機）模式：自動補齊剩下的角色
+            localMode = true;
+            const used = new Set(players.map(p => p.id));
+            const usedEmoji = new Set(players.map(p => p.emoji));
+            const fill = {};
+            for (let i = 0; i < cap; i++) {
+                const role = ROLE_OF(i);
+                if (used.has(role)) continue;
+                let emoji = LOCAL_EMOJIS[i];
+                if (usedEmoji.has(emoji)) emoji = LOCAL_EMOJIS[(i + 1) % 4];
+                usedEmoji.add(emoji);
+                fill[`${role}_local`] = { name: LOCAL_NAMES[i], emoji, id: role, wallsLeft: 10 };
             }
+            if (Object.keys(fill).length) {
+                await update(ref(db, `quoridor_rooms/${currentRoomId}/players`), fill);
+            }
+            saveSession();
+        }
+        moveHistory = [];
+        const board = { walls: [] };
+        activeRoles().forEach(role => {
+            const s = gameState.config?.starts?.[role];
+            board[role] = s ? { x: s.x, y: s.y } : { x: 8, y: role === 'p1' ? 20 : 0 };
         });
+        await update(ref(db, `quoridor_rooms/${currentRoomId}`), {
+            status: 'playing', turn: 'p1', board
+        });
+        saveSession();
     });
 
     document.getElementById('btn-leave-room').addEventListener('click', () => {
         remove(ref(db, `quoridor_rooms/${currentRoomId}/players/${myPlayerId}`));
+        clearSession();
         location.reload();
     });
+
+    /* ============ 斷線重連 (Reconnection) ============ */
+    const SESSION_KEY = 'quoridor_session';
+    function saveSession() {
+        try {
+            localStorage.setItem(SESSION_KEY, JSON.stringify({
+                roomId: currentRoomId, playerId: myPlayerId, isHost, localMode
+            }));
+        } catch (e) {}
+    }
+    function clearSession() {
+        try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
+    }
+    async function tryReconnect() {
+        let saved = null;
+        try { saved = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch (e) {}
+        if (!saved || !saved.roomId || !saved.playerId) return;
+        try {
+            const snap = await get(ref(db, `quoridor_rooms/${saved.roomId}`));
+            const room = snap.val();
+            if (!room || room.status !== 'playing' || !room.players || !room.players[saved.playerId]) {
+                clearSession(); return;
+            }
+            currentRoomId = saved.roomId;
+            myPlayerId = saved.playerId;
+            isHost = !!saved.isHost;
+            localMode = !!saved.localMode;
+            switchScreen('screen-game');
+            initGameListener();
+        } catch (e) { /* 網路問題就留在大廳 */ }
+    }
+    tryReconnect();
 
     // ---- 毀旗 (上一步) ----
     document.getElementById('btn-undo').addEventListener('click', async () => {
         if (moveHistory.length === 0) { alert("已經是最開始了！"); return; }
-
-        // 找出我的角色
-        const myRole = localMode ? gameState.turn : getMyRole();
-        
-        // 只有輪到自己才能悔棋 (或 localMode)
         const isMyTurn = localMode || (gameState.players[myPlayerId]?.id === gameState.turn);
         if (!isMyTurn) { alert("還沒輪到你，不能毀旗！"); return; }
-
         const prev = moveHistory.pop();
         pendingWall = null;
         await update(ref(db, `quoridor_rooms/${currentRoomId}`), prev);
     });
 
-    // 建立 11行 x 9列 的棋盤
+    function nextTurnRole(role) {
+        const roles = activeRoles();
+        const i = roles.indexOf(role);
+        return roles[(i + 1) % roles.length];
+    }
+
+    function snapshotState() {
+        const snap = {
+            'board/walls': [...(gameState.board.walls || [])],
+            turn: gameState.turn,
+            status: gameState.status
+        };
+        activeRoles().forEach(role => {
+            if (gameState.board[role]) snap[`board/${role}`] = { ...gameState.board[role] };
+        });
+        if (gameState.players) {
+            Object.keys(gameState.players).forEach(k => {
+                snap[`players/${k}/wallsLeft`] = gameState.players[k].wallsLeft;
+            });
+        }
+        return snap;
+    }
+
+    /* ============ 棋盤生成（動態長寬） ============ */
     function createBoardUI() {
+        const cols = cfgCols(), rows = cfgRows();
+        const key = `${cols}x${rows}x${isCustom() ? 'c' : 's'}`;
+        if (boardBuiltKey === key) return;
+        boardBuiltKey = key;
+
+        const cellSize = Math.max(18, Math.min(32, Math.floor(330 / cols)));
+        const wallSize = Math.max(6, Math.round(cellSize * 0.31));
         const board = document.getElementById('board');
+        board.style.gridTemplateColumns = `repeat(${cols - 1}, ${cellSize}px ${wallSize}px) ${cellSize}px`;
+        board.style.gridTemplateRows = `repeat(${rows - 1}, ${cellSize}px ${wallSize}px) ${cellSize}px`;
         board.innerHTML = '';
-        // Y 從 0 到 20 (總共11個Cell)
-        for (let y = 0; y <= 20; y++) {
-            for (let x = 0; x <= 16; x++) {
+
+        const mX = (cols - 1) * 2, mY = (rows - 1) * 2;
+        for (let y = 0; y <= mY; y++) {
+            for (let x = 0; x <= mX; x++) {
                 const div = document.createElement('div');
                 div.dataset.x = x;
                 div.dataset.y = y;
-                
+
                 if (x % 2 === 0 && y % 2 === 0) {
                     div.className = 'cell';
-                    if (y === 0 || y === 20) div.classList.add('bank-cell');
+                    div.style.width = cellSize + 'px';
+                    div.style.height = cellSize + 'px';
+                    div.style.fontSize = Math.round(cellSize * 0.62) + 'px';
+                    if (!isCustom() && (y === 0 || y === mY)) div.classList.add('bank-cell');
                     div.onclick = () => handleCellClick(x, y);
                 } else if (x % 2 !== 0 && y % 2 === 0) {
                     div.className = 'wall-v';
-                    // 🔥【修改】：允許直牆放置到岸邊 Y=0 到 Y=20 的範圍
-                    if (y >= 0 && y <= 20) {
-                        div.onclick = () => handleWallClick(x, y, 'v');
-                    } else { div.style.cursor = 'default'; }
+                    div.style.width = wallSize + 'px';
+                    div.style.height = cellSize + 'px';
+                    div.onclick = () => handleWallClick(x, y, 'v');
                 } else if (x % 2 === 0 && y % 2 !== 0) {
                     div.className = 'wall-h';
-                    // 🔥【修改】：允許橫牆放置到緊貼岸邊的縫隙 Y=1 到 Y=19 的範圍
-                    if (y >= 1 && y <= 19) {
-                        div.onclick = () => handleWallClick(x, y, 'h');
-                    } else { div.style.cursor = 'default'; }
+                    div.style.width = cellSize + 'px';
+                    div.style.height = wallSize + 'px';
+                    div.onclick = () => handleWallClick(x, y, 'h');
                 } else {
                     div.className = 'wall-c';
+                    div.style.width = wallSize + 'px';
+                    div.style.height = wallSize + 'px';
                 }
                 board.appendChild(div);
             }
         }
+        paintGoals();
     }
-    createBoardUI();
+
+    // 在棋盤上塗出終點（多色漸層）
+    function paintGoals() {
+        const map = new Map();
+        activeRoles().forEach(role => {
+            goalsOf(role).forEach(g => {
+                const k = `${g.x},${g.y}`;
+                if (!map.has(k)) map.set(k, []);
+                map.get(k).push(IDX_OF(role));
+            });
+        });
+        document.querySelectorAll('#board .cell').forEach(c => {
+            c.style.background = '';
+            c.style.boxShadow = '';
+            c.classList.remove('goal-cell');
+        });
+        map.forEach((owners, k) => {
+            const [x, y] = k.split(',');
+            const cell = document.querySelector(`#board [data-x="${x}"][data-y="${y}"]`);
+            if (!cell) return;
+            cell.classList.add('goal-cell');
+            const css = multiColorStyle(owners.sort((a, b) => a - b));
+            css.split(';').forEach(rule => {
+                const [prop, ...rest] = rule.split(':');
+                if (!prop.trim() || !rest.length) return;
+                cell.style.setProperty(prop.trim(), rest.join(':').trim());
+            });
+        });
+    }
 
     function updateUI() {
         if (!gameState) return;
+        createBoardUI();
         const players = gameState.players ? Object.values(gameState.players) : [];
         const myRole = getMyRole();
         const me = players.find(p => p.id === myRole) || players[0];
-        
+
         const status = document.getElementById('status-bar');
         const startBtn = document.getElementById('btn-start-game');
         const undoBtn = document.getElementById('btn-undo');
 
-        // ---- P2視角：棋盤旋轉180度 ----
+        // ---- 標準 2 人模式才旋轉視角 ----
         const boardEl = document.getElementById('board');
-        const isP2 = !localMode && myRole === 'p2';
-        if (isP2) {
-            boardEl.classList.add('rotated');
-            // 調整標籤文字符合旋轉後的視角
-            document.getElementById('bank-label-top').innerText = '⬆️ 我方 (P2 的起始區) ⬆️';
-            document.getElementById('bank-label-bottom').innerText = '⬇️ 對岸 (P1 的起始區) ⬇️';
-        } else {
+        const topLabel = document.getElementById('bank-label-top');
+        const bottomLabel = document.getElementById('bank-label-bottom');
+        if (isCustom()) {
             boardEl.classList.remove('rotated');
-            document.getElementById('bank-label-top').innerText = '⬆️ 對岸 (P2 的起始區) ⬆️';
-            document.getElementById('bank-label-bottom').innerText = '⬇️ 我方 (P1 的起始區) ⬇️';
+            topLabel.style.display = 'none';
+            bottomLabel.style.display = 'none';
+        } else {
+            topLabel.style.display = 'block';
+            bottomLabel.style.display = 'block';
+            const isP2 = !localMode && myRole === 'p2';
+            if (isP2) {
+                boardEl.classList.add('rotated');
+                topLabel.innerText = '⬆️ 我方 (P2 的起始區) ⬆️';
+                bottomLabel.innerText = '⬇️ 對岸 (P1 的起始區) ⬇️';
+            } else {
+                boardEl.classList.remove('rotated');
+                topLabel.innerText = '⬆️ 對岸 (P2 的起始區) ⬆️';
+                bottomLabel.innerText = '⬇️ 我方 (P1 的起始區) ⬇️';
+            }
         }
-        
+
         if (gameState.status === 'waiting') {
-            status.innerText = `房間：${gameState.name} | 等待中 (${players.length}/2)`;
-            if (isHost) startBtn.style.display = 'block';
+            status.innerText = `房間：${gameState.name} | 等待中 (${players.length}/${maxPlayers()})`;
+            if (isHost) {
+                startBtn.style.display = 'block';
+                const cap = maxPlayers();
+                if (players.length <= 1) {
+                    startBtn.innerText = '開始單機模式';
+                    startBtn.disabled = false;
+                } else {
+                    startBtn.innerText = players.length >= cap
+                        ? '開始遊戲' : `開始遊戲 (${players.length}/${cap})`;
+                    startBtn.disabled = players.length < cap;
+                }
+            } else {
+                startBtn.style.display = 'none';
+            }
             undoBtn.style.display = 'none';
         } else if (gameState.status === 'playing') {
             startBtn.style.display = 'none';
@@ -629,7 +1132,6 @@
             const turnName = turnPlayer ? turnPlayer.name : '';
             status.innerText = isMyTurn ? "👉 現在輪到你了！" : `⏳ 等待 ${turnName} 行動...`;
             status.style.color = isMyTurn ? "#10b981" : "#facc15";
-
             renderBoard();
         } else if (gameState.status === 'finished') {
             status.innerText = `🎉 遊戲結束！贏家：${gameState.winner}`;
@@ -643,12 +1145,11 @@
 
     function renderBoard() {
         document.querySelectorAll('.cell').forEach(c => c.classList.remove('valid-move'));
-        document.querySelectorAll('.cell > span').forEach(s => s.remove());
+        document.querySelectorAll('#board .cell > span').forEach(s => s.remove());
         document.querySelectorAll('.wall-h, .wall-v, .wall-c').forEach(w => {
             w.classList.remove('wall-filled', 'wall-pending', 'wall-highlight');
         });
 
-        // 畫牆壁
         const walls = gameState.board?.walls || [];
         walls.forEach(w => {
             const el1 = document.querySelector(`[data-x="${w.x}"][data-y="${w.y}"]`);
@@ -660,16 +1161,14 @@
                 el2 = document.querySelector(`[data-x="${w.x}"][data-y="${w.y+1}"]`);
                 el3 = document.querySelector(`[data-x="${w.x}"][data-y="${w.y+2}"]`);
             }
-            if(el1) el1.classList.add('wall-filled');
-            if(el2) el2.classList.add('wall-filled');
-            if(el3) el3.classList.add('wall-filled');
+            if (el1) el1.classList.add('wall-filled');
+            if (el2) el2.classList.add('wall-filled');
+            if (el3) el3.classList.add('wall-filled');
         });
 
-        // 畫暫存一半的牆壁 (本機預覽用)
         if (pendingWall) {
             const el = document.querySelector(`[data-x="${pendingWall.x}"][data-y="${pendingWall.y}"]`);
             if (el) el.classList.add('wall-pending');
-            
             pendingWall.validHalves.forEach(half => {
                 const hEl = document.querySelector(`[data-x="${half.x}"][data-y="${half.y}"]`);
                 if (hEl) hEl.classList.add('wall-highlight');
@@ -677,45 +1176,35 @@
         }
 
         // 畫玩家
-        const p1 = Object.values(gameState.players).find(p => p.id === 'p1');
-        const p2 = Object.values(gameState.players).find(p => p.id === 'p2');
+        activeRoles().forEach(role => {
+            const p = Object.values(gameState.players || {}).find(pl => pl.id === role);
+            const pos = gameState.board?.[role];
+            if (p && pos) placePlayer(pos.x, pos.y, p.emoji, role);
+        });
 
-        // 決定是否要翻轉（P2的棋子在旋轉棋盤上已被CSS反轉，所以不需要再flip）
-        const isP2view = !localMode && getMyRole() === 'p2';
-
-        if (gameState.board?.p1) placePlayer(gameState.board.p1.x, gameState.board.p1.y, p1.emoji, 'p1');
-        if (gameState.board?.p2) placePlayer(gameState.board.p2.x, gameState.board.p2.y, p2.emoji, 'p2');
-
-        if (p1 && p2) {
-            const myRole = localMode ? gameState.turn : getMyRole();
-            const myPlayer = Object.values(gameState.players).find(p => p.id === myRole);
-            document.getElementById('wall-count').innerText = 
-                myPlayer ? `🧱 剩餘牆壁 - 你: ${myPlayer.wallsLeft}` : '';
-        }
+        const myRole = localMode ? gameState.turn : getMyRole();
+        const myPlayer = Object.values(gameState.players || {}).find(p => p.id === myRole);
+        document.getElementById('wall-count').innerText =
+            myPlayer ? `🧱 剩餘牆壁 - 你: ${myPlayer.wallsLeft}` : '';
     }
 
     function placePlayer(x, y, emoji, playerRole) {
-        const cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
-        if (cell) {
-            const span = document.createElement('span');
-            span.className = 'player-emoji';
-            span.innerText = emoji;
-            span.onclick = (e) => {
-                e.stopPropagation();
-                if (pendingWall) { pendingWall = null; renderBoard(); }
-
-                // ---- BUG修正：只能點擊自己的棋子 ----
-                const myRole = localMode ? gameState.turn : getMyRole();
-                const isMyPiece = (playerRole === myRole);
-                const isMyTurn = localMode || (gameState.players[myPlayerId]?.id === gameState.turn);
-
-                if (isMyTurn && isMyPiece && gameState.status === 'playing') {
-                    previewMoves(x, y);
-                }
-                // 如果點到對手棋子，什麼都不做 (不會誤觸移動)
-            };
-            cell.appendChild(span);
-        }
+        const cell = document.querySelector(`#board [data-x="${x}"][data-y="${y}"]`);
+        if (!cell) return;
+        const span = document.createElement('span');
+        span.className = 'player-emoji';
+        span.innerText = emoji;
+        span.style.outline = `2px solid ${PLAYER_COLORS[IDX_OF(playerRole)]}`;
+        span.style.borderRadius = '50%';
+        span.onclick = (e) => {
+            e.stopPropagation();
+            if (pendingWall) { pendingWall = null; renderBoard(); }
+            const myRole = localMode ? gameState.turn : getMyRole();
+            const isMyPiece = (playerRole === myRole);
+            const isMyTurn = localMode || (gameState.players[myPlayerId]?.id === gameState.turn);
+            if (isMyTurn && isMyPiece && gameState.status === 'playing') previewMoves(x, y);
+        };
+        cell.appendChild(span);
     }
 
     function isWallBlocked(x, y) {
@@ -730,32 +1219,43 @@
         return false;
     }
 
+    function pawnAt(x, y, exceptRole) {
+        return activeRoles().some(role => {
+            if (role === exceptRole) return false;
+            const p = gameState.board?.[role];
+            return p && p.x === x && p.y === y;
+        });
+    }
+
+    function inBounds(x, y) { return x >= 0 && x <= maxX() && y >= 0 && y <= maxY(); }
+
     function getValidMoves(x, y) {
         const moves = [];
         const directions = [[0, -2], [0, 2], [-2, 0], [2, 0]];
-        const opponent = gameState.turn === 'p1' ? gameState.board.p2 : gameState.board.p1;
+        const selfRole = gameState.turn;
 
         directions.forEach(d => {
             const nx = x + d[0], ny = y + d[1];
-            const wx = x + d[0]/2, wy = y + d[1]/2;
+            const wx = x + d[0] / 2, wy = y + d[1] / 2;
+            if (!inBounds(nx, ny) || isWallBlocked(wx, wy)) return;
 
-            if (nx >= 0 && nx <= 16 && ny >= 0 && ny <= 20 && !isWallBlocked(wx, wy)) {
-                if (nx === opponent.x && ny === opponent.y) {
-                    const nnx = nx + d[0], nny = ny + d[1];
-                    const nwx = nx + d[0]/2, nwy = ny + d[1]/2;
-                    if (nnx >= 0 && nnx <= 16 && nny >= 0 && nny <= 20 && !isWallBlocked(nwx, nwy)) {
-                        moves.push({x: nnx, y: nny});
-                    } else {
-                        const crossDirs = d[0] === 0 ? [[-2, 0], [2, 0]] : [[0, -2], [0, 2]];
-                        crossDirs.forEach(cd => {
-                            const dx = nx + cd[0], dy = ny + cd[1];
-                            const dwx = nx + cd[0]/2, dwy = ny + cd[1]/2;
-                            if (dx >= 0 && dx <= 16 && dy >= 0 && dy <= 20 && !isWallBlocked(dwx, dwy)) {
-                                moves.push({x: dx, y: dy});
-                            }
-                        });
-                    }
-                } else { moves.push({x: nx, y: ny}); }
+            if (pawnAt(nx, ny, selfRole)) {
+                const nnx = nx + d[0], nny = ny + d[1];
+                const nwx = nx + d[0] / 2, nwy = ny + d[1] / 2;
+                if (inBounds(nnx, nny) && !isWallBlocked(nwx, nwy) && !pawnAt(nnx, nny, selfRole)) {
+                    moves.push({ x: nnx, y: nny });
+                } else {
+                    const crossDirs = d[0] === 0 ? [[-2, 0], [2, 0]] : [[0, -2], [0, 2]];
+                    crossDirs.forEach(cd => {
+                        const dx = nx + cd[0], dy = ny + cd[1];
+                        const dwx = nx + cd[0] / 2, dwy = ny + cd[1] / 2;
+                        if (inBounds(dx, dy) && !isWallBlocked(dwx, dwy) && !pawnAt(dx, dy, selfRole)) {
+                            moves.push({ x: dx, y: dy });
+                        }
+                    });
+                }
+            } else {
+                moves.push({ x: nx, y: ny });
             }
         });
         return moves;
@@ -764,53 +1264,32 @@
     function previewMoves(x, y) {
         document.querySelectorAll('.cell').forEach(c => c.classList.remove('valid-move'));
         selectedPawn = true;
-        const validMoves = getValidMoves(x, y);
-        validMoves.forEach(m => {
-            const cell = document.querySelector(`[data-x="${m.x}"][data-y="${m.y}"]`);
+        getValidMoves(x, y).forEach(m => {
+            const cell = document.querySelector(`#board [data-x="${m.x}"][data-y="${m.y}"]`);
             if (cell) cell.classList.add('valid-move');
         });
     }
 
     async function handleCellClick(x, y) {
-        const myRole = localMode ? gameState.turn : getMyRole();
         const isMyTurn = localMode || (gameState.players[myPlayerId]?.id === gameState.turn);
-        if (pendingWall) {
-            pendingWall = null;
-            renderBoard();
-        }
-
+        if (pendingWall) { pendingWall = null; renderBoard(); }
         if (!selectedPawn || !isMyTurn || gameState.status !== 'playing') return;
-        
-        const cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
-        if (!cell || !cell.classList.contains('valid-move')) return; 
+
+        const cell = document.querySelector(`#board [data-x="${x}"][data-y="${y}"]`);
+        if (!cell || !cell.classList.contains('valid-move')) return;
 
         const currentTurn = gameState.turn;
-        const nextTurn = currentTurn === 'p1' ? 'p2' : 'p1';
+        moveHistory.push(snapshotState());
 
-        // 儲存當前狀態到歷史 (用於毀旗)
-        const snapshot = {
-            'board/p1': { ...gameState.board.p1 },
-            'board/p2': { ...gameState.board.p2 },
-            'board/walls': [...(gameState.board.walls || [])],
-            turn: currentTurn,
-            status: gameState.status
-        };
-        // 同步玩家牆壁數量
-        if (gameState.players) {
-            Object.keys(gameState.players).forEach(k => {
-                snapshot[`players/${k}/wallsLeft`] = gameState.players[k].wallsLeft;
-            });
-        }
-        moveHistory.push(snapshot);
+        const updateData = { [`board/${currentTurn}`]: { x, y }, turn: nextTurnRole(currentTurn) };
 
-        const updateData = { [`board/${currentTurn}`]: {x, y}, turn: nextTurn };
-
-        // 終點判斷 (P1走到Y=0, P2走到Y=20)
-        if ((currentTurn === 'p1' && y === 0) || (currentTurn === 'p2' && y === 20)) {
+        // 終點判斷：走到自己任一自訂終點即獲勝
+        const won = goalsOf(currentTurn).some(g => g.x === x && g.y === y);
+        if (won) {
             updateData.status = 'finished';
             const winnerPlayer = Object.values(gameState.players).find(p => p.id === currentTurn);
-            updateData.winner = winnerPlayer.name;
-            updateData.winnerEmoji = winnerPlayer.emoji;
+            updateData.winner = winnerPlayer?.name || currentTurn;
+            updateData.winnerEmoji = winnerPlayer?.emoji || '🏆';
         }
 
         selectedPawn = false;
@@ -821,7 +1300,6 @@
         const isMyTurn = localMode || (gameState.players[myPlayerId]?.id === gameState.turn);
         if (!isMyTurn || gameState.status !== 'playing') return;
 
-        // 若已有待放置的一半牆壁
         if (pendingWall) {
             const isSecondHalf = pendingWall.validHalves.find(h => h.x === x && h.y === y && pendingWall.type === type);
             if (isSecondHalf) {
@@ -830,32 +1308,30 @@
                 await placeFullWall(fullX, fullY, type);
                 return;
             } else {
-                pendingWall = null; 
+                pendingWall = null;
             }
         }
 
-        // 作為新的第一半牆壁
-        if (isWallBlocked(x, y)) return; 
-        
+        if (isWallBlocked(x, y)) return;
+
         let validHalves = [];
         if (type === 'h') {
-            if (x + 2 <= 16 && !isWallBlocked(x + 1, y) && !isWallBlocked(x + 2, y)) validHalves.push({x: x + 2, y: y});
-            if (x - 2 >= 0 && !isWallBlocked(x - 1, y) && !isWallBlocked(x - 2, y)) validHalves.push({x: x - 2, y: y});
+            if (x + 2 <= maxX() && !isWallBlocked(x + 1, y) && !isWallBlocked(x + 2, y)) validHalves.push({ x: x + 2, y });
+            if (x - 2 >= 0 && !isWallBlocked(x - 1, y) && !isWallBlocked(x - 2, y)) validHalves.push({ x: x - 2, y });
         } else {
-            // 🔥【修改】：配合前面 Y 軸範圍加大的設定，讓直牆延伸檢查時能涵蓋 Y=0 與 Y=20 的極限邊界
-            if (y + 2 <= 20 && !isWallBlocked(x, y + 1) && !isWallBlocked(x, y + 2)) validHalves.push({x: x, y: y + 2});
-            if (y - 2 >= 0 && !isWallBlocked(x, y - 1) && !isWallBlocked(x, y - 2)) validHalves.push({x: x, y: y - 2});
+            if (y + 2 <= maxY() && !isWallBlocked(x, y + 1) && !isWallBlocked(x, y + 2)) validHalves.push({ x, y: y + 2 });
+            if (y - 2 >= 0 && !isWallBlocked(x, y - 1) && !isWallBlocked(x, y - 2)) validHalves.push({ x, y: y - 2 });
         }
 
         if (validHalves.length > 0) {
-            pendingWall = {x, y, type, validHalves};
+            pendingWall = { x, y, type, validHalves };
             renderBoard();
         }
     }
 
     async function placeFullWall(x, y, type) {
         if (!canReachEnd(x, y, type)) {
-            alert("不能完全堵死自己或對手的路徑！（關廁所違規），請重來！");
+            alert("不能完全堵死任何一位玩家通往終點的路！（關廁所違規），請重來！");
             pendingWall = null;
             renderBoard();
             return;
@@ -864,65 +1340,53 @@
         const currentTurn = gameState.turn;
         const playerKey = Object.keys(gameState.players).find(k => gameState.players[k].id === currentTurn);
         const wallsLeft = gameState.players[playerKey].wallsLeft;
-
         if (wallsLeft <= 0) { alert("牆壁用完了！"); pendingWall = null; renderBoard(); return; }
 
-        // 儲存當前狀態到歷史 (用於毀旗)
-        const snapshot = {
-            'board/p1': { ...gameState.board.p1 },
-            'board/p2': { ...gameState.board.p2 },
-            'board/walls': [...(gameState.board.walls || [])],
-            turn: currentTurn,
-            status: gameState.status
-        };
-        if (gameState.players) {
-            Object.keys(gameState.players).forEach(k => {
-                snapshot[`players/${k}/wallsLeft`] = gameState.players[k].wallsLeft;
-            });
-        }
-        moveHistory.push(snapshot);
+        moveHistory.push(snapshotState());
 
-        const currentWalls = gameState.board.walls || [];
-        currentWalls.push({x, y, type});
+        const currentWalls = [...(gameState.board.walls || []), { x, y, type }];
         pendingWall = null;
-        
+
         await update(ref(db, `quoridor_rooms/${currentRoomId}`), {
             'board/walls': currentWalls,
-            turn: currentTurn === 'p1' ? 'p2' : 'p1',
+            turn: nextTurnRole(currentTurn),
             [`players/${playerKey}/wallsLeft`]: wallsLeft - 1
         });
     }
 
+    // 每位在場玩家都必須還能走到自己任一終點
     function canReachEnd(testStartX, testStartY, testType) {
-        const simulatedWall = {x: testStartX, y: testStartY, type: testType};
         const oldWalls = gameState.board.walls || [];
-        gameState.board.walls = [...oldWalls, simulatedWall];
+        gameState.board.walls = [...oldWalls, { x: testStartX, y: testStartY, type: testType }];
 
-        const p1Pass = bfs(gameState.board.p1.x, gameState.board.p1.y, 0);
-        const p2Pass = bfs(gameState.board.p2.x, gameState.board.p2.y, 20);
+        let ok = true;
+        for (const role of activeRoles()) {
+            const pos = gameState.board[role];
+            if (!pos) continue;
+            if (!bfs(pos.x, pos.y, goalsOf(role))) { ok = false; break; }
+        }
 
-        gameState.board.walls = oldWalls; // 恢復
-        return p1Pass && p2Pass;
+        gameState.board.walls = oldWalls;
+        return ok;
     }
 
-    function bfs(startX, startY, targetY) {
-        const queue = [{x: startX, y: startY}];
-        const visited = new Set();
-        visited.add(`${startX},${startY}`);
+    // BFS：目標為自訂終點座標陣列，抵達任一個即算通過
+    function bfs(startX, startY, goalList) {
+        const targets = new Set((goalList || []).map(g => `${g.x},${g.y}`));
+        if (targets.size === 0) return true;
+        const queue = [{ x: startX, y: startY }];
+        const visited = new Set([`${startX},${startY}`]);
         const directions = [[0, -2], [0, 2], [-2, 0], [2, 0]];
 
         while (queue.length > 0) {
             const curr = queue.shift();
-            if (curr.y === targetY) return true; 
-
+            if (targets.has(`${curr.x},${curr.y}`)) return true;
             for (let d of directions) {
                 const nx = curr.x + d[0], ny = curr.y + d[1];
-                const wx = curr.x + d[0]/2, wy = curr.y + d[1]/2;
-                if (nx >= 0 && nx <= 16 && ny >= 0 && ny <= 20) {
-                    if (!visited.has(`${nx},${ny}`) && !isWallBlocked(wx, wy)) {
-                        visited.add(`${nx},${ny}`);
-                        queue.push({x: nx, y: ny});
-                    }
+                const wx = curr.x + d[0] / 2, wy = curr.y + d[1] / 2;
+                if (inBounds(nx, ny) && !visited.has(`${nx},${ny}`) && !isWallBlocked(wx, wy)) {
+                    visited.add(`${nx},${ny}`);
+                    queue.push({ x: nx, y: ny });
                 }
             }
         }
